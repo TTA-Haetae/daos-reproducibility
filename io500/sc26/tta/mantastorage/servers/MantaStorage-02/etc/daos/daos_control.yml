@@ -1,0 +1,8 @@
+name: daos_server
+port: 10001
+hostlist: ["MantaStorage-01", "MantaStorage-02", "MantaStorage-03", "MantaStorage-04", "MantaStorage-05", "MantaStorage-06"]
+transport_config:
+  allow_insecure: false
+  ca_cert: /etc/daos/certs/daosCA.crt
+  cert: /etc/daos/certs/admin.crt
+  key: /etc/daos/certs/admin.key

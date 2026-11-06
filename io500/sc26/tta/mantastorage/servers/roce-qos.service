@@ -1,0 +1,13 @@
+[Unit]
+Description=RoCE lossless class (DSCP 26 / PFC prio 3) to match the switch
+Wants=network-online.target
+After=network-online.target NetworkManager-wait-online.service
+Before=daos_server.service daos_agent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/roce-qos-node.sh apply
+
+[Install]
+WantedBy=multi-user.target

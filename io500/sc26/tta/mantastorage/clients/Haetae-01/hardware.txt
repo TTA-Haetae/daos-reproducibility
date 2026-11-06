@@ -1,0 +1,13 @@
+# NIC firmware (ibv_devinfo)
+bnxt_re0 fw 235.1.157.0
+mlx5_0 fw 28.43.3608
+# CPU (lscpu)
+Model name:                              INTEL(R) XEON(R) PLATINUM 8558
+Thread(s) per core:                      2
+Core(s) per socket:                      48
+Socket(s):                               2
+# memory
+MemTotal:       1055948904 kB
+# DMI
+ASUSTeK COMPUTER INC.
+ESC8000-E11

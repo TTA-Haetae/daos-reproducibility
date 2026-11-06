@@ -1,0 +1,30 @@
+# DAOS 2.8.1 agent config. The servers use ofi+verbs;ofi_rxm on the
+# 192.168.24.0/24 data network; the agent uses the data network NICs listed below.
+name: daos_server
+access_points: ["MantaStorage-01", "MantaStorage-03", "MantaStorage-05"]
+port: 10001
+transport_config:
+  allow_insecure: false
+  ca_cert: /etc/daos/certs/daosCA.crt
+  cert: /etc/daos/certs/agent.crt
+  key: /etc/daos/certs/agent.key
+runtime_dir: /var/run/daos_agent
+log_file: /var/log/daos/daos_agent.log
+control_log_mask: INFO
+disable_auto_evict: true
+enable_evict_on_start: true
+disable_caching: false
+include_fabric_ifaces: ["ens255np0", "bcm400np0"]
+fabric_ifaces:
+-
+  numa_node: 0
+  devices:
+  -
+    iface: ens255np0
+    domain: mlx5_0
+-
+  numa_node: 1
+  devices:
+  -
+    iface: bcm400np0
+    domain: bnxt_re0

@@ -1,0 +1,9 @@
+# mstconfig -e -d <pci> q ADVANCED_PCI_SETTINGS PCI_WR_ORDERING CQE_COMPRESSION  (Default / Current / Next boot)
+-- mlx5_0 0000:33:00.0
+*       ADVANCED_PCI_SETTINGS                       False(0)             True(1)              True(1)             
+*       PCI_WR_ORDERING                             per_mkey(0)          force_relax(1)       force_relax(1)      
+*       CQE_COMPRESSION                             BALANCED(0)          AGGRESSIVE(1)        AGGRESSIVE(1)       
+-- mlx5_1 0000:b4:00.0
+*       ADVANCED_PCI_SETTINGS                       False(0)             True(1)              True(1)             
+*       PCI_WR_ORDERING                             per_mkey(0)          force_relax(1)       force_relax(1)      
+*       CQE_COMPRESSION                             BALANCED(0)          AGGRESSIVE(1)        AGGRESSIVE(1)       

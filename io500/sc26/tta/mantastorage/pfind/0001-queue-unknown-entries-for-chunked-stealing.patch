@@ -1,0 +1,331 @@
+diff --git a/src/pfind.c b/src/pfind.c
+index dc353db..292b2e3 100644
+--- a/src/pfind.c
++++ b/src/pfind.c
+@@ -24,6 +24,8 @@
+ #warning "Could not detect PATH_MAX"
+ #endif
+ #define PFIND_PATH_MAX 128
++// maximum number of work items handed out per job-stealing request
++#define PFIND_STEAL_MAX 256
+ 
+ #define MSG_COMPLETE 777
+ #define MSG_JOB_STEAL 800
+@@ -63,6 +65,8 @@ typedef struct{
+ static pfind_runtime_options_t runtime;
+ static int find_do_readdir(char *path, int idx);
+ static void find_do_lstat(char *path);
++static int find_do_unknown(char *path, char *name);
++static int check_steal_req();
+ 
+ typedef struct {
+   char name[PFIND_PATH_MAX];
+@@ -87,6 +91,8 @@ work_excess_dir_t excess_dirs = {NULL, 0, 0};
+ 
+ // amount of pending_work
+ static int pending_work = 0;
++// number of directory ('d') items in work[0 .. pending_work - 1]
++static int pending_dirs = 0;
+ 
+ static void* smalloc(size_t size){
+   void * p = malloc(size);
+@@ -135,6 +141,9 @@ static int enqueue_work(char typ, char * path){
+   sprintf(work[pending_work].name, "%s", path);
+   //printf("Queuing: %s\n", work[pending_work].name);
+   pending_work++;
++  if (typ == 'd'){
++    pending_dirs++;
++  }
+   return 0;
+ }
+ 
+@@ -152,12 +161,28 @@ static void find_process_one_item() {
+ 			strcpy(tmp_path, excess_dirs.dirs[excess_dirs.size].name);
+ 			idx = -1;
+ 		}
+-		find_do_readdir(excess_dirs.dirs[excess_dirs.size].name, -1);
++		// use the local copy: the excess slot is reused (or reallocated) when
++		// find_do_readdir() adds new excess directories
++		find_do_readdir(tmp_path, idx);
+ 		return;
+ 	}
+ 	pending_work--;
+ 
+ 	work_t * cur = & work[pending_work];
++	if (cur->type == 'd') {
++		pending_dirs--;
++	}
++
++	if (cur->type == 'u') {
++		// readdir did not provide the type, stat it now. Copy the name first:
++		// this queue slot is reused as soon as new work is enqueued.
++		strcpy(tmp_path, cur->name);
++		char * name = strrchr(tmp_path, '/');
++		if (find_do_unknown(tmp_path, name ? name + 1 : tmp_path)) {
++			find_do_readdir(tmp_path, -1);
++		}
++		return;
++	}
+ 
+ 	if( cur->type != 'd') {
+ 		find_do_lstat(cur->name);
+@@ -252,6 +277,7 @@ pfind_find_results_t * pfind_find(pfind_options_t * lopt){
+     //work[0].name[0] = 0;
+     strcpy(work[0].name, start_dir);
+     pending_work++;
++    pending_dirs++;
+   }
+ 
+   int have_finalize_token = (pfind_rank == 0);
+@@ -270,6 +296,7 @@ pfind_find_results_t * pfind_find(pfind_options_t * lopt){
+           printf("Hit stonewall at %.2fs\n", MPI_Wtime());
+         }
+         pending_work = 0;
++        pending_dirs = 0;
+       }else{
+         find_process_one_item();
+       }
+@@ -315,55 +342,7 @@ pfind_find_results_t * pfind_find(pfind_options_t * lopt){
+ 
+     MPI_Status wait_status;
+     // check for job-stealing request
+-    has_msg = 1;
+-    while(has_msg){
+-      ret = MPI_Iprobe(MPI_ANY_SOURCE, MSG_JOB_STEAL, pfind_com, & has_msg, & wait_status);
+-      CHECK_MPI
+-      if(has_msg){
+-        int requesting_rank = wait_status.MPI_SOURCE;
+-        ret = MPI_Recv(NULL, 0, MPI_INT, requesting_rank, MSG_JOB_STEAL, pfind_com, & wait_status);
+-        CHECK_MPI
+-        debug("[%d] msg ready from %d !\n", pfind_rank, requesting_rank);
+-
+-        int work_to_give = pending_work / 2;
+-	if (work_to_give)
+-		work_to_give = 1;
+-
+-        res->monitor.job_steal_inbound++;
+-        res->monitor.work_send += work_to_give;
+-
+-        int datasize = sizeof(work_t)*work_to_give;
+-        pending_work -= work_to_give;
+-
+-        #ifndef LZ4
+-          ret = MPI_Send(& work[pending_work], datasize, MPI_CHAR, requesting_rank, MSG_JOB_STEAL_RESPONSE, pfind_com);
+-
+-        #else
+-
+-        if(datasize > 0){
+-          int compressed_size;
+-          compressed_size = LZ4_compress_default((char*) & work[pending_work], compress_buf, datasize, max_compressed);
+-          ret = MPI_Send(compress_buf, compressed_size, MPI_CHAR, requesting_rank, MSG_JOB_STEAL_RESPONSE, pfind_com);
+-        }else{
+-          ret = MPI_Send(NULL, 0, MPI_CHAR, requesting_rank, MSG_JOB_STEAL_RESPONSE, pfind_com);
+-        }
+-        #endif
+-        CHECK_MPI
+-
+-        // move excess directory queue into the regular queue
+-        if(excess_dirs.size > 0){
+-
+-          int to_move = work_to_give < excess_dirs.size ? work_to_give : excess_dirs.size;
+-          int ex_pos = excess_dirs.size - 1;
+-          //printf("Move %d ex_pos: %d Move: %d\n", pending_work, ex_pos, to_move);
+-          for(int i = 0 ; i < to_move; i++, pending_work++, ex_pos--){
+-            work[pending_work].type = 'd';
+-            strcpy(work[pending_work].name, excess_dirs.dirs[ex_pos].name);
+-          }
+-          excess_dirs.size -= to_move;
+-        }
+-      }
+-    }
++    check_steal_req();
+ 
+     int work_received = 0;
+     int steal_neighbor = pfind_rank;
+@@ -421,6 +400,13 @@ pfind_find_results_t * pfind_find(pfind_options_t * lopt){
+         }
+         debug("[%d] stole %d \n", pfind_rank, work_received);
+         pending_work = work_received;
++        // the queue was empty, it now holds exactly the received items
++        pending_dirs = 0;
++        for(int i = 0; i < work_received; i++){
++          if(work[i].type == 'd'){
++            pending_dirs++;
++          }
++        }
+         if (work_received > 0){
+           have_processed_work_after_token = 1;
+         }
+@@ -483,9 +469,49 @@ static int check_steal_req()
+ 			CHECK_MPI
+ 			debug("[%d] msg ready from %d !\n", pfind_rank, requesting_rank);
+ 
+-			int work_to_give = pending_work / 2;
+-			if (work_to_give)
+-				work_to_give = 1;
++			// Give half of the pending work, at most PFIND_STEAL_MAX items per
++			// response; work_to_give <= queue_length / 2 fits compress_buf and the
++			// receiver's work array.
++			// Directory items ('d', mostly directory splits) are coarse-grained:
++			// reading one can yield millions of entries, while a file item is a
++			// single stat. While the queue holds a directory, every non-empty
++			// response carries exactly one, never more, so that splits spread
++			// one per thief. Scanning down from the top of the stack, the first
++			// 'd' ends the chunk; without a 'd' in the chunk, the topmost 'd'
++			// below it is swapped in (pending_dirs avoids a futile scan). The
++			// directory goes to the top of the chunk, so the thief reads it
++			// first while its file items remain stealable.
++			int limit = pending_work / 2;
++			if (limit > PFIND_STEAL_MAX)
++				limit = PFIND_STEAL_MAX;
++			int work_to_give = 0;
++			for (int i = pending_work - 1; i >= pending_work - limit; i--) {
++				work_to_give++;
++				if (work[i].type == 'd')
++					break;
++			}
++			int dpos = -1;
++			if (work_to_give > 0) {
++				int bottom = pending_work - work_to_give;
++				if (work[bottom].type == 'd') {
++					dpos = bottom;
++				} else if (pending_dirs > 0) {
++					for (int j = bottom - 1; j >= 0; j--) {
++						if (work[j].type == 'd') {
++							dpos = j;
++							break;
++						}
++					}
++				}
++			}
++			if (dpos >= 0) {
++				if (dpos != pending_work - 1) {
++					work_t swap = work[dpos];
++					work[dpos] = work[pending_work - 1];
++					work[pending_work - 1] = swap;
++				}
++				pending_dirs--;
++			}
+ 			res->monitor.job_steal_inbound++;
+ 			res->monitor.work_send += work_to_give;
+ 
+@@ -520,6 +546,7 @@ static int check_steal_req()
+ 					strcpy(work[pending_work].name, excess_dirs.dirs[ex_pos].name);
+ 				}
+ 				excess_dirs.size -= to_move;
++				pending_dirs += to_move;
+ 			}
+ 		}
+ 	}
+@@ -590,6 +617,35 @@ static void find_do_lstat(char *path) {
+ 	}
+ }
+ 
++// Stat an entry whose type was not provided by readdir; name is its basename.
++// Non-directories are counted and checked here. Returns 1 if the entry is a
++// directory, which the caller has to traverse, 0 otherwise.
++static int find_do_unknown(char *path, char *name) {
++	struct stat buf;
++
++	if (pfind_dfs_lstat(path, &buf)) {
++		res->errors++;
++		if(opt->verbosity > 1){
++			fprintf(runtime.logfile, "Error stating file: %s\n", path);
++		}
++		return 0;
++	}
++	if (S_ISDIR(buf.st_mode)) {
++		return 1;
++	}
++
++	res->total_files++;
++	// compare values
++	if(opt->name_pattern && regexec(& opt->name_regex, name, 0, NULL, 0) ){
++		if(opt->verbosity >= 2) {
++			printf("Name does not match: %s\n", name);
++		}
++		return 0;
++	}
++	check_buf(buf, name);
++	return 0;
++}
++
+ static int find_do_readdir(char *path, int idx) {
+ 	DIR *d;
+ 
+@@ -601,7 +657,10 @@ static int find_do_readdir(char *path, int idx) {
+ 		for (i=0 ; i<nr; i++) {
+ 			sprintf(tmp, "~~%d:%s", i, path);
+ 			//printf("enqueue %s\n", tmp);
+-			enqueue_work('d', tmp);
++			if (enqueue_work('d', tmp)) {
++				// the queue is full: keep the split instead of dropping it
++				enqueue_dir_excess(tmp, NULL);
++			}
+ 		}
+ 		pfind_dfs_closedir(d);
+ 		check_steal_req();
+@@ -650,45 +709,31 @@ static int find_do_readdir(char *path, int idx) {
+ 		char typ = find_file_type(entry->d_type);
+ 		if (typ == 'u'){
+ 			res->unknown_file++;
+-			// sometimes the filetype is not provided by readdir.
+-			struct stat buf;
+-			if (pfind_dfs_lstat(newpath, &buf)) {
+-				res->errors++;
+-				if(opt->verbosity > 1){
+-					fprintf(runtime.logfile, "Error stating file: %s\n", newpath);
+-				}
++			// sometimes the filetype is not provided by readdir (DFS never provides it).
++			// Queue the stat so that idle ranks can steal it instead of doing it inline.
++			if (enqueue_work('u', newpath) == 0) {
+ 				continue;
+ 			}
+-			typ = S_ISDIR(buf.st_mode) ? 'd' : 'f';
+-
+-			if(typ == 'f') { // since we have done the stat already, it would be a waste to do it again
+-				res->total_files++;
+-				// compare values
+-				if(opt->name_pattern && regexec(& opt->name_regex, entry->d_name, 0, NULL, 0) ){
+-					if(opt->verbosity >= 2) {
+-						printf("Name does not match: %s\n", entry->d_name);
+-					}
+-					continue;
+-				}
+-				check_buf(buf, entry->d_name);
++			// the queue is full: stat inline and keep reading the directory
++			if (find_do_unknown(newpath, entry->d_name) == 0) {
+ 				continue;
+ 			}
++			typ = 'd'; // a directory that cannot be queued, use the excess list below
++		} else if (enqueue_work(typ, newpath) == 0) {
++			// queued, find_process_one_item() will stat or read it later
++			continue;
+ 		}
+ 
+-		// we need to perform a stat operation
+-		if (enqueue_work(typ, newpath)) {
+-			if(typ == 'd') {
+-				static int printed_warning = 0;
+-				if(! printed_warning){
+-					printf("[%d] WARNING, utilizing excess queue for processing of the directory %s as the queue is full, supressing further messages. This may lead to suboptimal performance. Try to increase the queue size.\n", pfind_rank, entry->d_name);
+-					printed_warning = 1;
+-				}
+-				enqueue_dir_excess(newpath, entry->d_name);
+-			} else {
+-				find_do_lstat(newpath);
++		// the queue is full: handle the entry here and keep reading the directory
++		if(typ == 'd') {
++			static int printed_warning = 0;
++			if(! printed_warning){
++				printf("[%d] WARNING, utilizing excess queue for processing of the directory %s as the queue is full, supressing further messages. This may lead to suboptimal performance. Try to increase the queue size.\n", pfind_rank, entry->d_name);
++				printed_warning = 1;
+ 			}
+-			check_steal_req();
+-			return 1;
++			enqueue_dir_excess(newpath, entry->d_name);
++		} else {
++			find_do_lstat(newpath);
+ 		}
+ 	}
+ 	pfind_dfs_closedir(d);

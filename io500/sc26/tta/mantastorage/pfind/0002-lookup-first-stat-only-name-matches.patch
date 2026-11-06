@@ -1,0 +1,141 @@
+diff --git a/src/pfind-dfs.c b/src/pfind-dfs.c
+index 32f5aae..dc3564d 100644
+--- a/src/pfind-dfs.c
++++ b/src/pfind-dfs.c
+@@ -497,3 +497,65 @@ int pfind_dfs_lstat(const char* path, struct stat* buf)
+ 
+     return 0;
+ }
++
++/*
++ * Look up an entry without the size/epoch part of dfs_stat(): one fetch_entry,
++ * the object open is local. Returns the type in mode and an open object that
++ * must be released with pfind_dfs_release(). O_NOFOLLOW keeps the lstat
++ * semantics of pfind_dfs_lstat() for symlinks.
++ */
++int pfind_dfs_lookup(const char* path, mode_t* mode, dfs_obj_t** obj)
++{
++    int rc;
++    dfs_obj_t *parent = NULL;
++    char *name = NULL, *dir_name = NULL;
++
++    rc = parse_filename(path, &name, &dir_name);
++    if (rc) {
++	    fprintf(stderr, "parse_filename %s failed (%d)\n", path, rc);
++	    if (rc < 0)
++		    rc = -rc;
++	    goto out;
++    }
++
++    assert(dir_name);
++
++    parent = lookup_insert_dir(dir_name, NULL);
++    if (parent == NULL) {
++	    fprintf(stderr, "dfs_lookup %s failed \n", dir_name);
++	    rc = ENOENT;
++	    goto out;
++    }
++
++    rc = dfs_lookup_rel(pfind_dfs, parent, name, O_RDONLY | O_NOFOLLOW, obj, mode, NULL);
++    if (rc)
++	    fprintf(stderr, "dfs_lookup_rel %s failed (%d)\n", name, rc);
++
++out:
++    free(name);
++    free(dir_name);
++    return rc;
++}
++
++/* Full stat of a looked-up entry, same values as dfs_stat() */
++int pfind_dfs_fstat(dfs_obj_t* obj, struct stat* buf)
++{
++    int rc;
++
++    rc = dfs_ostat(pfind_dfs, obj, buf);
++    if (rc) {
++	    fprintf(stderr, "dfs_ostat failed (%d)\n", rc);
++	    return rc;
++    }
++
++    return 0;
++}
++
++void pfind_dfs_release(dfs_obj_t* obj)
++{
++    int rc;
++
++    rc = dfs_release(obj);
++    if (rc)
++	    fprintf(stderr, "dfs_release failed (%d)\n", rc);
++}
+diff --git a/src/pfind-dfs.h b/src/pfind-dfs.h
+index d9818bb..9a71d40 100644
+--- a/src/pfind-dfs.h
++++ b/src/pfind-dfs.h
+@@ -1,3 +1,6 @@
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <daos_fs.h>
+ 
+ void pfind_init_daos(MPI_Comm comm);
+ void pfind_fini_daos(MPI_Comm comm);
+@@ -5,3 +8,6 @@ DIR* pfind_dfs_opendir(const char* dir, int *nr);
+ int pfind_dfs_closedir(DIR* _dirp);
+ struct dirent* pfind_dfs_readdir(DIR* _dirp);
+ int pfind_dfs_lstat(const char* path, struct stat* buf);
++int pfind_dfs_lookup(const char* path, mode_t* mode, dfs_obj_t** obj);
++int pfind_dfs_fstat(dfs_obj_t* obj, struct stat* buf);
++void pfind_dfs_release(dfs_obj_t* obj);
+--- a/src/pfind.c
++++ b/src/pfind.c
+@@ -617,20 +617,26 @@
+ 	}
+ }
+ 
+-// Stat an entry whose type was not provided by readdir; name is its basename.
++// Handle an entry whose type was not provided by readdir; name is its basename.
+ // Non-directories are counted and checked here. Returns 1 if the entry is a
+ // directory, which the caller has to traverse, 0 otherwise.
++// The lookup alone gives the type (one fetch_entry with DFS), so directories
++// and files whose name does not match get no stat; only the remaining files
++// get the full stat (size, times) that check_buf() needs.
+ static int find_do_unknown(char *path, char *name) {
+ 	struct stat buf;
++	mode_t mode;
++	dfs_obj_t *obj;
+ 
+-	if (pfind_dfs_lstat(path, &buf)) {
++	if (pfind_dfs_lookup(path, &mode, &obj)) {
+ 		res->errors++;
+ 		if(opt->verbosity > 1){
+-			fprintf(runtime.logfile, "Error stating file: %s\n", path);
++			fprintf(runtime.logfile, "Error looking up: %s\n", path);
+ 		}
+ 		return 0;
+ 	}
+-	if (S_ISDIR(buf.st_mode)) {
++	if (S_ISDIR(mode)) {
++		pfind_dfs_release(obj);
+ 		return 1;
+ 	}
+ 
+@@ -640,9 +646,19 @@
+ 		if(opt->verbosity >= 2) {
+ 			printf("Name does not match: %s\n", name);
+ 		}
++		pfind_dfs_release(obj);
++		return 0;
++	}
++	if (pfind_dfs_fstat(obj, &buf)) {
++		res->errors++;
++		if(opt->verbosity > 1){
++			fprintf(runtime.logfile, "Error stating file: %s\n", path);
++		}
++		pfind_dfs_release(obj);
+ 		return 0;
+ 	}
+ 	check_buf(buf, name);
++	pfind_dfs_release(obj);
+ 	return 0;
+ }
+ 

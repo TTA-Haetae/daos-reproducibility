@@ -1,0 +1,28 @@
+pfind.c: queue unknown-type entries and chunk job stealing
+
+On DFS, dfs_readdir() never fills d_type, so every entry took the 'u'
+branch of find_do_readdir() and was stat'ed inline; nothing was ever
+enqueued, so idle ranks had nothing to steal while the ranks holding
+the splits of a large directory (one anchor per object group) did
+millions of synchronous stats each. On a 640-rank IO500 run 560 ranks
+spent 65% of the find phase waiting.
+
+- Enqueue entries of unknown type as 'u' work items and stat them in
+  find_process_one_item() (find_do_unknown); a directory found that way
+  is traversed with find_do_readdir(path, -1) as before.
+- On a full queue, stat the entry inline and keep reading the directory
+  instead of returning early (the early return abandoned the rest of
+  the split and leaked the handle); directory splits that do not fit in
+  the queue go to the excess list instead of being dropped.
+- Job stealing hands out half of the pending work up to PFIND_STEAL_MAX
+  (256) items per request instead of one item, but at most one
+  directory item ('d', e.g. a split) per response, placed on top of the
+  chunk so the thief reads it first; a pending_dirs counter avoids
+  scanning the stack when no directory item is queued.
+- The duplicated steal handler in the main loop now calls
+  check_steal_req().
+
+Results are unchanged (found, total files, dirents) in a 216-combination
+mock test (ranks, queue length, splits, LZ4, d_type) and in IO500 runs;
+on the 640-rank DAOS system the find phase went from 2,291 to
+5,165 kIOPS with every file still counted.

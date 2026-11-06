@@ -1,0 +1,101 @@
+# DAOS 2.8.1 server config for MantaStorage-04.
+name: daos_server
+mgmt_svc_replicas: ["MantaStorage-01", "MantaStorage-03", "MantaStorage-05"]
+control_metadata:
+  path: /var/daos/control_meta
+port: 10001
+provider: ofi+verbs;ofi_rxm
+# OS disk and unused spares stay with the kernel
+bdev_exclude: ["0000:6f:00.0"]
+disable_vmd: true
+disable_hugepages: false
+system_ram_reserved: 8
+control_log_file: /var/log/daos/daos_server.log
+helper_log_file: /var/log/daos/daos_server_helper.log
+firmware_helper_log_file: /var/log/daos/daos_firmware_helper.log
+telemetry_port: 9191
+client_env_vars:
+  - CRT_CREDIT_EP_CTX=0
+  - CRT_MRC_ENABLE=1
+  - CRT_TIMEOUT=600
+  - FI_OFI_RXM_USE_SRX=1
+  - FI_UNIVERSE_SIZE=16383
+  - FI_VERBS_INLINE_SIZE=128
+  - FI_VERBS_PREFER_XRC=1
+engines:
+-
+  # Seagate 5360H 7.68TB x4
+  targets: 16
+  nr_xs_helpers: 4
+  pinned_numa_node: 0
+  bypass_health_chk: true
+  fabric_iface: ens257np0
+  fabric_iface_port: 20000
+  log_mask: INFO
+  log_file: /var/log/daos/daos_engine.0.log
+  env_vars:
+    - CRT_CREDIT_EP_CTX=0
+    - DAOS_DTX_AGG_THD_CNT=16777216
+    - DAOS_DTX_AGG_THD_AGE=1200
+    - FI_OFI_RXM_USE_SRX=1
+    - FI_UNIVERSE_SIZE=16384
+    - FI_VERBS_PREFER_XRC=1
+  storage:
+  -
+    scm_mount: /mnt/daos/1
+    class: ram
+    scm_size: 300
+    scm_hugepages_disabled: false
+  -
+    class: nvme
+    bdev_list: [
+      "0000:59:00.0",
+      "0000:5a:00.0",
+      "0000:5b:00.0",
+      "0000:5c:00.0",
+    ]
+    bdev_roles: ['data', 'meta', 'wal']
+  bdev_auto_faulty:
+    enable: true
+    max_io_errs: 100
+    max_csum_errs: 200
+-
+  # DapuStor R5100 7.68TB x8
+  targets: 16
+  nr_xs_helpers: 4
+  pinned_numa_node: 1
+  bypass_health_chk: true
+  fabric_iface: ens769np0
+  fabric_iface_port: 21000
+  log_mask: INFO
+  log_file: /var/log/daos/daos_engine.1.log
+  env_vars:
+    - CRT_CREDIT_EP_CTX=0
+    - DAOS_DTX_AGG_THD_CNT=16777216
+    - DAOS_DTX_AGG_THD_AGE=1200
+    - FI_OFI_RXM_USE_SRX=1
+    - FI_UNIVERSE_SIZE=16384
+    - FI_VERBS_PREFER_XRC=1
+  storage:
+  -
+    scm_mount: /mnt/daos/2
+    class: ram
+    scm_size: 300
+    scm_hugepages_disabled: false
+  -
+    class: nvme
+    bdev_list: [
+      "0000:d8:00.0",
+      "0000:d9:00.0",
+      "0000:da:00.0",
+      "0000:db:00.0",
+      "0000:ea:00.0",
+      "0000:eb:00.0",
+      "0000:ec:00.0",
+      "0000:ed:00.0",
+    ]
+    bdev_roles: ['data', 'meta', 'wal']
+  bdev_auto_faulty:
+    enable: true
+    max_io_errs: 100
+    max_csum_errs: 200

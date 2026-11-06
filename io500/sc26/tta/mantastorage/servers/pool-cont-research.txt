@@ -1,0 +1,341 @@
+### dmg pool get-prop -j haetae
+{
+  "response": [
+    {
+      "name": "checkpoint",
+      "description": "WAL checkpointing behavior",
+      "value": "timed"
+    },
+    {
+      "name": "checkpoint_freq",
+      "description": "WAL checkpointing frequency, in seconds",
+      "value": 5
+    },
+    {
+      "name": "checkpoint_thresh",
+      "description": "WAL checkpoint threshold, in percentage",
+      "value": 50
+    },
+    {
+      "name": "data_thresh",
+      "description": "Data bdev threshold size",
+      "value": 2048
+    },
+    {
+      "name": "ec_cell_sz",
+      "description": "EC cell size",
+      "value": 131072
+    },
+    {
+      "name": "ec_pda",
+      "description": "Performance domain affinity level of EC",
+      "value": 1
+    },
+    {
+      "name": "global_version",
+      "description": "Global Version",
+      "value": 4
+    },
+    {
+      "name": "label",
+      "description": "Pool label",
+      "value": "haetae"
+    },
+    {
+      "name": "perf_domain",
+      "description": "Pool performance domain",
+      "value": "root"
+    },
+    {
+      "name": "rd_fac",
+      "description": "Pool redundancy factor",
+      "value": 3
+    },
+    {
+      "name": "reclaim",
+      "description": "Reclaim strategy",
+      "value": "lazy"
+    },
+    {
+      "name": "reintegration",
+      "description": "Reintegration mode",
+      "value": "data_sync"
+    },
+    {
+      "name": "rp_pda",
+      "description": "Performance domain affinity level of RP",
+      "value": 4294967295
+    },
+    {
+      "name": "scrub",
+      "description": "Checksum scrubbing mode",
+      "value": "off"
+    },
+    {
+      "name": "scrub_freq",
+      "description": "Checksum scrubbing frequency",
+      "value": 604800
+    },
+    {
+      "name": "scrub_thresh",
+      "description": "Checksum scrubbing threshold",
+      "value": 0
+    },
+    {
+      "name": "self_heal",
+      "description": "Self-healing policy",
+      "value": "exclude;rebuild"
+    },
+    {
+      "name": "space_rb",
+      "description": "Rebuild space ratio",
+      "value": 5
+    },
+    {
+      "name": "svc_list",
+      "description": "Pool service replica list",
+      "value": [
+        0,
+        4,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "svc_ops_enabled",
+      "description": "Metadata duplicate operations detection enabled",
+      "value": 1
+    },
+    {
+      "name": "svc_ops_entry_age",
+      "description": "Metadata duplicate operations KVS max entry age, in seconds",
+      "value": 300
+    },
+    {
+      "name": "svc_rf",
+      "description": "Pool service redundancy factor",
+      "value": 2
+    },
+    {
+      "name": "upgrade_status",
+      "description": "Upgrade Status",
+      "value": "not started"
+    }
+  ],
+  "error": null,
+  "status": 0
+}
+### dmg pool query -j haetae
+{
+  "response": {
+    "query_mask": "disabled_engines,rebuild,self_heal_policy,space",
+    "state": "Ready",
+    "uuid": "e7cee22e-7567-4ca2-86c4-406bde98b2c2",
+    "total_targets": 192,
+    "active_targets": 192,
+    "total_engines": 12,
+    "disabled_targets": 0,
+    "version": 1,
+    "svc_ldr": 0,
+    "svc_reps": [
+      0,
+      4,
+      6,
+      7,
+      8
+    ],
+    "rebuild": {
+      "status": 0,
+      "state": "idle",
+      "derived_state": "idle",
+      "objects": 0,
+      "records": 0,
+      "total_objects": 0,
+      "degraded": false
+    },
+    "tier_stats": [
+      {
+        "total": 3852585664512,
+        "free": 2494529065856,
+        "min": 10736507068,
+        "max": 13271783996,
+        "mean": 12992338884,
+        "media_type": "scm"
+      },
+      {
+        "total": 363276923830272,
+        "free": 149130402795520,
+        "min": 774481367040,
+        "max": 779588345856,
+        "mean": 776720847893,
+        "media_type": "nvme"
+      }
+    ],
+    "disabled_ranks": [],
+    "pool_layout_ver": 4,
+    "upgrade_layout_ver": 4,
+    "mem_file_bytes": 3852585664512,
+    "md_on_ssd_active": true,
+    "self_heal_policy": "exclude;rebuild",
+    "usage": [
+      {
+        "tier_name": "SCM",
+        "size": 3852585664512,
+        "free": 2494529065856,
+        "imbalance": 12
+      },
+      {
+        "tier_name": "NVME",
+        "size": 363276923830272,
+        "free": 149130402795520,
+        "imbalance": 0
+      }
+    ]
+  },
+  "error": null,
+  "status": 0
+}
+### daos container get-prop -j haetae haetae-research
+{
+  "response": [
+    {
+      "value": [
+        "A::OWNER@:rwdtTaAo",
+        "A:G:GROUP@:rwtT"
+      ],
+      "name": "acl",
+      "description": "Access Control List"
+    },
+    {
+      "value": 1803,
+      "name": "alloc_oid",
+      "description": "Highest Allocated OID"
+    },
+    {
+      "value": "off",
+      "name": "cksum",
+      "description": "Checksum"
+    },
+    {
+      "value": 32768,
+      "name": "cksum_size",
+      "description": "Checksum Chunk Size"
+    },
+    {
+      "value": "off",
+      "name": "compression",
+      "description": "Compression"
+    },
+    {
+      "value": "off",
+      "name": "dedup",
+      "description": "Deduplication"
+    },
+    {
+      "value": 4096,
+      "name": "dedup_threshold",
+      "description": "Dedupe Threshold"
+    },
+    {
+      "value": 131072,
+      "name": "ec_cell_sz",
+      "description": "EC Cell Size"
+    },
+    {
+      "value": "1",
+      "name": "ec_pda",
+      "description": "Performance domain affinity level of EC"
+    },
+    {
+      "value": "off",
+      "name": "encryption",
+      "description": "Encryption"
+    },
+    {
+      "value": "4",
+      "name": "global_version",
+      "description": "Global Version"
+    },
+    {
+      "value": "gluesys@",
+      "name": "group",
+      "description": "Group"
+    },
+    {
+      "value": "haetae-research",
+      "name": "label",
+      "description": "Label"
+    },
+    {
+      "value": "POSIX",
+      "name": "layout_type",
+      "description": "Layout Type (unknown, POSIX, HDF5, PYTHON, SPARK, DATABASE, ROOT, SEISMIC, METEO)"
+    },
+    {
+      "value": 1,
+      "name": "layout_version",
+      "description": "Layout Version"
+    },
+    {
+      "value": 0,
+      "name": "max_snapshot",
+      "description": "Max Snapshot"
+    },
+    {
+      "value": "2",
+      "name": "obj_version",
+      "description": "Object Version"
+    },
+    {
+      "value": "gluesys@",
+      "name": "owner",
+      "description": "Owner"
+    },
+    {
+      "value": "root (255)",
+      "name": "perf_domain",
+      "description": "Performance domain level"
+    },
+    {
+      "value": "0",
+      "name": "rd_fac",
+      "description": "Redundancy Factor (0-4)"
+    },
+    {
+      "value": "node",
+      "name": "rd_lvl",
+      "description": "Redundancy Level (rank=1, node=2)"
+    },
+    {
+      "value": [
+        "281479271677952.0",
+        "281479271677953.0"
+      ],
+      "name": "root_oids",
+      "description": "Root OIDs"
+    },
+    {
+      "value": "4294967295",
+      "name": "rp_pda",
+      "description": "Performance domain affinity level of RP"
+    },
+    {
+      "value": "false",
+      "name": "scrub_disabled",
+      "description": "Scrubber Disabled"
+    },
+    {
+      "value": "off",
+      "name": "srv_cksum",
+      "description": "Server Checksumming"
+    },
+    {
+      "value": "HEALTHY",
+      "name": "status",
+      "description": "Health"
+    }
+  ],
+  "error": null,
+  "status": 0
+}

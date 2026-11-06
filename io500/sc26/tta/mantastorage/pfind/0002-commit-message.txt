@@ -1,0 +1,30 @@
+pfind: look up unknown entries first, stat only files that match -name
+
+On DFS every entry reaches find_do_unknown() without a type, and
+pfind_dfs_lstat() -> dfs_stat() costs two server RPCs per entry
+(fetch_entry plus daos_array_stat for a file, plus
+daos_obj_query_max_epoch for a directory) before the name is compared.
+The IO500 find phase is bound by the servers' RPC rate, and only a few
+percent of the entries match -name.
+
+- pfind-dfs.c: add pfind_dfs_lookup() (dfs_lookup_rel() on the cached
+  parent with O_RDONLY | O_NOFOLLOW and no stat buffer: one fetch_entry,
+  the object open is local), pfind_dfs_fstat() (dfs_ostat(), the same
+  entry_stat() values as dfs_stat(), so -newer and -size see the same
+  ctime and size) and pfind_dfs_release(). pfind_dfs_lstat() is kept for
+  find_do_lstat().
+- find_do_unknown(): look the entry up first. A directory is released
+  and traversed without a stat; a non-directory is counted and its name
+  compared, and only a matching one gets the full stat for check_buf().
+
+Per entry this is one RPC for directories and for files whose name does
+not match, and three for files that match, instead of two for every
+entry. Results keep their meaning (found, total files, dirents, errors);
+the only difference is that an entry whose stat fails after a successful
+lookup is counted in total files as well as in errors. Entries typed by
+readdir (find_do_lstat()) are unchanged.
+
+A POSIX mock of pfind-dfs.c gives the same [DONE] line as the original
+pfind in 216 combinations (ranks, queue length, splits, LZ4, d_type),
+with one lookup per entry and one full stat per non-directory entry
+whose name matches.

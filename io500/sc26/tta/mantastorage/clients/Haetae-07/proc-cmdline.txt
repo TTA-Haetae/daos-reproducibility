@@ -1,0 +1,1 @@
+BOOT_IMAGE=(hd0,gpt2)/vmlinuz-6.12.0-211.16.1.el10_2.0.1.x86_64 root=/dev/mapper/rl-root ro crashkernel=2G-64G:256M,64G-:512M resume=UUID=a8fb60bb-7e5a-4a9b-ab0a-64f541f26180 rd.lvm.lv=rl/root rd.lvm.lv=rl/swap rhgb quiet intel_idle.max_cstate=1 processor.max_cstate=1 transparent_hugepage=madvise

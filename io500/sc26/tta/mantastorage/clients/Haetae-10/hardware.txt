@@ -1,0 +1,13 @@
+# NIC firmware (ibv_devinfo)
+mlx5_0 fw 28.43.3608
+mlx5_1 fw 20.43.3608
+# CPU (lscpu)
+Model name:                              INTEL(R) XEON(R) PLATINUM 8558
+Thread(s) per core:                      2
+Core(s) per socket:                      48
+Socket(s):                               2
+# memory
+MemTotal:       263192412 kB
+# DMI
+KTNF Co.,Ltd.
+KH590S3

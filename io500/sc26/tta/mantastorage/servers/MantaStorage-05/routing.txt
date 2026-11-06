@@ -1,0 +1,16 @@
+# ip rule
+0:	from all lookup local
+100:	from 192.168.24.205 lookup 100 proto static
+101:	from 192.168.24.215 lookup 101 proto static
+32766:	from all lookup main
+32767:	from all lookup default
+
+# ip route: per-rail tables 100-102 (proto static), then main table (proto kernel), RDMA subnet only
+192.168.24.0/24 dev ens1np0 proto static scope link src 192.168.24.205 metric 101
+192.168.24.0/24 dev ens513np0 proto static scope link src 192.168.24.215 metric 102
+192.168.24.0/24 dev ens1np0 proto kernel scope link src 192.168.24.205 metric 101
+192.168.24.0/24 dev ens513np0 proto kernel scope link src 192.168.24.215 metric 102
+
+# NetworkManager per-rail settings (connection: ipv4.addresses|ipv4.routes|ipv4.routing-rules|ipv4.never-default)
+ens1np0	192.168.24.205/24|192.168.24.0/24 src=192.168.24.205 table=100|priority 100 from 192.168.24.205 table 100|yes
+ens513np0	192.168.24.215/24|192.168.24.0/24 src=192.168.24.215 table=101|priority 101 from 192.168.24.215 table 101|yes

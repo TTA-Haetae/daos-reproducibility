@@ -1,0 +1,22 @@
+diff --git a/prepare.sh b/prepare.sh
+index 165b2fe..f6c75b1 100755
+--- a/prepare.sh
++++ b/prepare.sh
+@@ -22,7 +22,7 @@ MAKE="make -j${NPROC:-$(nproc 2> /dev/null || echo 4)}"	# handle missing nproc
+ 
+ # *****  YOU SHOULD NOT EDIT ANYTHING BELOW THIS LINE  *****
+ IOR_HASH=e4e457852b2f1173bb6dc73
+-PFIND_HASH=2742734
++PFIND_HASH=b86a4a010559
+ 
+ function main {
+   # listed here, easier to spot and run if something fails
+@@ -77,7 +77,7 @@ function get_pfind {
+     echo "Parallel find already exists. Skipping download."
+   else
+     echo "Preparing parallel find"
+-    git_co https://github.com/VI4IO/pfind.git "$pfind_dir" $PFIND_HASH
++    git_co https://github.com/mchaarawi/pfind.git "$pfind_dir" $PFIND_HASH
+   fi
+ }
+ 
