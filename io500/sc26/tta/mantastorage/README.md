@@ -88,10 +88,10 @@ The second network rail on socket 1 differs between the nodes:
 
 | Node | Model | RAM | Socket 0 NIC | Socket 1 NIC(s) |
 |---|---|---|---|---|
-| Haetae-01, Haetae-02 | ASUS ESC8000-E11 | 16x 64GiB DDR5-4800 | ConnectX-7 400GbE (MCX75310AAS-NEAT) | Broadcom BCM57608 400GbE |
-| Haetae-03 | ASUS ESC8000-E11 | 16x 64GiB DDR5-4800 | ConnectX-7 400GbE | 2x ConnectX-6 200GbE (MCX653105A-HDAT) |
-| Haetae-04 | ASUS ESC8000-E11 | 8x 64GiB DDR5-4800 | ConnectX-7 400GbE | 2x ConnectX-6 200GbE (MCX653105A-HDAT) |
-| Haetae-05 to Haetae-08 | ASUS ESC8000-E11 | 8x 64GiB DDR5-4800 | ConnectX-7 400GbE | ConnectX-6 200GbE (MCX653105A-HDAT) |
+| Haetae-01, Haetae-02 | 3Score FrightPro SR800 S4 (ASUS ESC8000-E11) | 16x 64GiB DDR5-4800 | ConnectX-7 400GbE (MCX75310AAS-NEAT) | Broadcom BCM57608 400GbE |
+| Haetae-03 | 3Score FrightPro SR800 S4 (ASUS ESC8000-E11) | 16x 64GiB DDR5-4800 | ConnectX-7 400GbE | 2x ConnectX-6 200GbE (MCX653105A-HDAT) |
+| Haetae-04 | 3Score FrightPro SR800 S4 (ASUS ESC8000-E11) | 8x 64GiB DDR5-4800 | ConnectX-7 400GbE | 2x ConnectX-6 200GbE (MCX653105A-HDAT) |
+| Haetae-05 to Haetae-08 | 3Score FrightPro SR800 S4 (ASUS ESC8000-E11) | 8x 64GiB DDR5-4800 | ConnectX-7 400GbE | ConnectX-6 200GbE (MCX653105A-HDAT) |
 | Haetae-09, Haetae-10 | KTNF KH590S3 | 8x 32GiB DDR5-5600 | ConnectX-7 400GbE | ConnectX-6 200GbE (MCX653105A-HDAT) |
 
 Sub-NUMA clustering is disabled in the BIOS of all compute nodes, so each node has

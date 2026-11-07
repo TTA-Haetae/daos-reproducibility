@@ -18,7 +18,7 @@
 #                         rail-bind.sh re-pins each rank after MPI's binding
 #   STONEWALL            stonewall seconds; < 300 is a smoke test, INVALID run
 #   MPI_PML               ucx (default, MPI over RDMA) or ob1 (TCP btl)
-#   ENV_SET               "K=V ..." added to, or replacing, io500_env
+#   ENV_SET               "K=V ..." added to, or replacing, io500_env (A/B runs)
 #   ENV_UNSET             "K ..." dropped from io500_env
 #
 # Per-run diagnostics (env, mpirun line, node state, fabric NIC counter
@@ -59,7 +59,7 @@ STONEWALL="${STONEWALL:-300}"
 NNODES="$(grep -cv '^\s*\(#\|$\)' "$HOSTFILE")"
 NPROC="$((NNODES * PPN))"
 
-# 4/9 of the ranks run find, with a queue of 45 entries per find rank
+# Same ratio as the SC25 TTA run (1008 ranks -> 448 find ranks, 45 per queue)
 FIND_NPROC="${FIND_NPROC:-$((NPROC * 4 / 9))}"
 FIND_QLEN="${FIND_QLEN:-$((FIND_NPROC * 45))}"
 
@@ -116,8 +116,12 @@ then
     io500_mpiargs+=" --use-hwthread-cpus"
   fi
 
-  # MPI does not use libfabric. MPI_PML=ucx (default): MPI over UCX/RDMA on
-  # the data network; MPI_PML=ob1: TCP.
+  # Keep MPI off libfabric: Open MPI's ofi MTL picks verbs/rxm and spins in
+  # rxm_get_conn. IO500's MPI traffic is small, TCP + shared memory is enough.
+  # MPI_PML=ucx (default): MPI over UCX/RDMA on the data network. The TCP
+  # btl loses connections on the management network (TCP retransmit
+  # timeouts) and runs out of source ports on the two data NICs.
+  # MPI_PML=ob1: the old TCP path.
   if [ "${MPI_PML:-ucx}" = "ucx" ]
   then
     io500_mpiargs+=" --mca pml ucx --mca osc ucx --mca btl ^tcp,ofi --mca mtl ^ofi"

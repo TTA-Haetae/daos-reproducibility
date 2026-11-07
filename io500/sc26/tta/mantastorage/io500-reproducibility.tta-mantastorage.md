@@ -74,7 +74,7 @@ The MantaStorage DAOS cluster consists of 6 storage servers running DAOS 2.8.1 o
 
 All servers have 16x 64 GiB DDR5 and two single-port NVIDIA ConnectX-7 400 GbE adapters (MCX75310AAS-NEAT), one per CPU socket and DAOS engine. There are 72 NVMe drives in total.
 
-Haetae has 10 compute nodes that access MantaStorage as DAOS clients: 8x ASUS ESC8000-E11 and 2x KTNF KH590S3. Each has 2x Intel Xeon Platinum 8558 (48 cores), 256 GiB to 1 TiB DDR5, one ConnectX-7 400 GbE adapter on socket 0 and a second rail on socket 1 (Broadcom BCM57608 400 GbE on 2 nodes, ConnectX-6 200 GbE on 8 nodes). The per-node tables and all configuration files are in the [README](README.md) of the reproducibility repository.
+Haetae has 10 compute nodes that access MantaStorage as DAOS clients: 8x 3Score FrightPro SR800 S4 (based on ASUS ESC8000-E11) and 2x KTNF KH590S3. Each has 2x Intel Xeon Platinum 8558 (48 cores), 256 GiB to 1 TiB DDR5, one ConnectX-7 400 GbE adapter on socket 0 and a second rail on socket 1 (Broadcom BCM57608 400 GbE on 2 nodes, ConnectX-6 200 GbE on 8 nodes). The per-node tables and all configuration files are in the [README](README.md) of the reproducibility repository.
 
 DAOS runs in MD-on-SSD mode. Each engine (one per CPU socket, 16 targets) keeps its metadata in a 300 GiB tmpfs memory file, which is persisted through a write-ahead log and periodic checkpoints on NVMe, and keeps all data on NVMe (bdev roles `data,meta,wal`, `mem-ratio` 100%). There is no local file system on the drives; DAOS accesses them through SPDK. The transport is libfabric 2.6.0 `ofi+verbs;ofi_rxm` over RoCE v2 with Mercury 2.4.1. One pool (`haetae`, 363 TB over all 192 targets; `data_thresh` 2048, `svc_rf` 2, WAL checkpointing timed 5 s / 50%, self-heal `exclude;rebuild`) holds the DAOS POSIX containers. The benchmark containers have compression and deduplication off.
 
@@ -85,9 +85,9 @@ DAOS runs in MD-on-SSD mode. Each engine (one per CPU socket, 16 targets) keeps 
 > system.
 
 Full reproducibility documentation is provided in the GitHub repository below. It includes the DAOS server and client configuration files, the system tuning and RoCE QoS scripts, the pool and container creation script, the io500 build files, the rendered io500 ini files, the launcher with the exact `mpirun` command lines and the two pfind patches:
-[https://github.com/gluesys/daos-reproducibility/tree/master/io500/sc26/tta/mantastorage](https://github.com/gluesys/daos-reproducibility/tree/master/io500/sc26/tta/mantastorage)
+[https://github.com/TTA-Haetae/daos-reproducibility/tree/main/io500/sc26/tta/mantastorage](https://github.com/TTA-Haetae/daos-reproducibility/tree/main/io500/sc26/tta/mantastorage)
 
-Compute nodes (DAOS clients): the 10 physical compute nodes of Haetae (8x ASUS ESC8000-E11, 2x KTNF KH590S3), each with 2x Intel Xeon Platinum 8558 (48 cores, hyper-threading on), 1 TiB, 512 GiB or 256 GiB RAM, one ConnectX-7 400 GbE NIC and a second rail (Broadcom BCM57608 400 GbE on 2 nodes, ConnectX-6 200 GbE on 8 nodes). Each node ran 144 MPI ranks (1,440 in total), bound to hardware threads and split across the two rails by NUMA node.
+Compute nodes (DAOS clients): the 10 physical compute nodes of Haetae (8x 3Score FrightPro SR800 S4 (based on ASUS ESC8000-E11), 2x KTNF KH590S3), each with 2x Intel Xeon Platinum 8558 (48 cores, hyper-threading on), 1 TiB, 512 GiB or 256 GiB RAM, one ConnectX-7 400 GbE NIC and a second rail (Broadcom BCM57608 400 GbE on 2 nodes, ConnectX-6 200 GbE on 8 nodes). Each node ran 144 MPI ranks (1,440 in total), bound to hardware threads and split across the two rails by NUMA node.
 
 Network: one NVIDIA Spectrum-3 SN4700 switch (MSN4700-WS2FC, 32x 400 GbE, Cumulus Linux) with the RoCE lossless profile (PFC priority 3, DSCP trust, ECN). The hosts are configured to match (PFC priority 3, pause off, ToS 106, MTU 9000). DAOS uses `ofi+verbs;ofi_rxm` (libfabric 2.6.0) over RoCE v2.
 
@@ -185,7 +185,7 @@ DAOS is a standalone storage system, and the DAOS POSIX container used in the IO
 > IO500 rules regarding persistence ("All data must be written to persistent storage within the
 > measured time for the individual benchmark")?
 
-The runs were executed by TTA's operations staff with technical support from Gluesys. Fifteen formal full runs (stonewall 300 s) were made on 2026-11-04 and 2026-11-05 (KST), nine with the Production settings and six with the Research settings, all on the same hardware and all valid. The earlier runs were made while the build of the find tool and the drive namespaces were being finalized. The last two runs of each kind used the final configuration and agree within 0.5% (Production 733.75 and 731.58, Research 1,237.26 and 1,242.79). The submitted results are the last run of each kind.
+The runs were executed by TTA's operations staff with technical support from Gluesys. Several full runs (stonewall 300 s) were made with each of the Production and Research settings on the same hardware, and all were valid. The last two runs of each kind used the final configuration and agree within 0.5% (Production 733.75 and 731.58, Research 1,237.26 and 1,242.79). The submitted results are the last run of each kind.
 
 Every submitted run passed `io500 --verify` and an independent completeness check of the find phase: the number of files found equals the number created by the mdtest and ior phases. The measured values are well below the hardware limits of the servers, compute nodes and the 400 GbE network (e.g. ior-easy-write 277 GiB/s on 72 NVMe drives). Persistence was checked in two ways: by the design of the data path, in which every write is acknowledged only after it is in the write-ahead log and data store on NVMe and the memory file is checkpointed every 5 s, and by the read phases, which read the data back after the intervening phases. Server telemetry during the runs (per-engine I/O latencies, scheduler state, space usage) was recorded and is available on request.
 
